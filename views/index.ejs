@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>soccer scraping app</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=PT+Sans">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:300">
+    <link rel="stylesheet"
+        href="https://fonts.google.com/specimen/Agbalumo?preview.text=Long%20Term%20Car%20Rentals%0A">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Agbalumo&family=Cormorant+Garamond:wght@300&family=Dancing+Script:wght@700&family=Gothic+A1:wght@900&family=Gruppo&family=Inter:wght@900&family=Lato:ital,wght@0,400;1,900&family=Montserrat:wght@100;200;400;700&family=Poppins:ital@1&family=Roboto:wght@900&display=swap"
+        rel="stylesheet">
+    <link rel="icon" href="/G.png" type="image/x-icon" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<style>
+    :root {
+        background: transparent;
+        /* color: #333; */
+        font: 1.5rem "PT Sans", sans-serif;
+        --select-border: #777;
+        --select-focus: blue;
+        --select-arrow: var(--select-border);
+    }
+    
+    select {
+        appearance: none;
+        background-color: transparent;
+        border: none;
+        padding: 0 1em 0 0;
+        margin: 0;
+        width: 100%;
+        font-size: inherit;
+        z-index: 1;
+    }
+
+    .select {
+        display: grid;
+        grid-template-areas: "select";
+        align-items: center;
+        position: relative;
+
+        select,
+        &::after {
+            grid-area: select;
+        }
+
+        min-width: 15ch;
+        max-width: 30ch;
+        border: 1px solid var(--select-border);
+        border-radius: 0.25em;
+        padding: 0.25em 0.5em;
+        font-size: 1.25rem;
+        cursor: pointer;
+        line-height: 1.1;
+        background-color: #fff;
+        /* background-image: linear-gradient(to top, #f9f9f9, #fff 33%); */
+
+        &:not(.select--multiple)::after {
+            content: "";
+            justify-self: end;
+            width: 0.8em;
+            height: 0.5em;
+            background-color: var(--select-arrow);
+            clip-path: polygon(100% 0%, 0 0%, 50% 100%);
+        }
+    }
+
+    label {
+    font-size: 1.125rem;
+    font-weight: 500;
+    }
+
+    .select + label {
+    margin-top: 2rem;
+    }
+
+    html,
+    body {
+        height: 100%;
+        /* min-height: 100vh; */
+        display: grid;
+        place-content: center;
+        grid-gap: 0.5rem;
+        font-family: "Baloo 2", sans-serif;
+        /* padding: 1rem; */
+    }
+
+    .container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .uppercase {
+        text-transform: uppercase;
+    }
+
+    .btn {
+        display: inline-block;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        border: 0;
+        outline: 0;
+        padding: 0;
+        transition: all 200ms ease-in;
+        cursor: pointer;
+    }
+
+    .btn--primary {
+        background: #26aaf3;
+        /* color: #fff; */
+        /* box-shadow: 0 0 10px 0 rgba(0,0,0,0.45) inset; */
+        padding: 10px 16px;
+        border-radius: 37px;
+        position: absolute;
+        margin-top: 6px;
+    }
+
+    .btn--primary:hover {
+        background: #2091ce;
+    }
+
+    .btn--primary:active {
+        background: #2091ce;
+        box-shadow: inset 0 0 10px 2px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn--inside {
+        margin-left: -113px;
+    }
+
+    .download_btn {
+        margin-top: 20px;
+        padding: 10px 30px;
+        border-radius: 30px;
+        border: none;
+        visibility: hidden;
+    }
+
+    #titleText {
+        margin: 40px auto;
+        font-family: 'Ubuntu', sans-serif;
+        font-size: 70px;
+        font-weight: bold;
+        color: #ffffff;
+        text-align: center;
+        letter-spacing: 5px;
+        text-shadow: 3px 0px 7px rgba(53, 53, 53, 0.897), -3px 0px 7px rgba(66, 66, 66, 0.8), 0px 4px 7px rgba(66, 66, 66, 0.8);
+        padding-bottom: 50px;
+    }
+
+    .imgurl {
+        background-image: url('background.jpg');
+        background-size: cover;
+        background-position: center;
+    }
+</style>
+
+<body class="imgurl">
+    <div class="container">
+        <h1 id="titleText" style="font-size: 70px; font-weight: bold;">Soccer Scraping</h1>
+        <div class="container__item">
+            <button type="button" class="btn btn--primary btn--inside uppercase" style="font-family: Roboto; font-weight: 900; color: white; border: 5px solid white;" onclick="getMatchlist()">Get Match List</button>
+        </div>
+        <h1 id="statusText" style="font-family: Gruppo; font-weight: lighter; font-size: 40px;"></h1>
+        
+        <a id="listdown" href="/matches.csv">
+            <button id="list_download" class="button-17 download_btn" role="button">Download</button>
+        </a>
+        
+        <label for="standard-select">Please select team</label>
+        <div class="select">
+            <select id="standard-select">
+                <option value="Option 1">Option 1</option>
+                <option value="Option 2">Option 2</option>
+                <option value="Option 3">Option 3</option>
+                <option value="Option 4">Option 4</option>
+                <option value="Option 5">Option 5</option>
+            </select>
+            <span class="focus"></span>
+        </div>
+        <div class="container__item">
+            <button type="button" class="btn btn--primary uppercase" style="font-family: Roboto; font-weight: 900; color: white; border: 5px solid white; margin-left: -76px;" onclick="startScrapFunc()">Scraping</button>
+        </div>
+        <a id="scrapdown" href="/scraped.csv">
+            <button id="result_download" class="button-17 download_btn" role="button">Result Download</button>
+        </a>
+    </div>
+
+
+</body>
+<script>
+    // let percentageInterval = null;
+    // let count = 0;
+    // let name = "";
+    // let startDate = "";
+    // let fileName = "";
+    // let startFileName = "";
+    let getMatchFlag = 0;
+
+    function getMatchlist() {
+        document.getElementById("list_download").style.visibility = "hidden";
+
+        console.log("getmatchlist button clicked");
+        axios.post('/getmatchlist')
+            .then(response => {
+                document.getElementById("list_download").style.visibility = "visible";
+            })
+            .catch(error => {
+                // Handle any errors
+                console.error("button click error >>> ", error);
+            });
+    };
+    // function checkFileAndSubmit() {
+    //     startDate = document.getElementById('submitData').value;
+    //     startFileName = "Avis" + startDate + ".csv";
+    //     document.getElementById('startButton').disabled = true;
+    //     document.getElementById('startButton').style.cursor = "not-allowed";
+
+    //     // console.log("submit file >>> ", startFileName);
+    //     // window.location.href = `/${startFileName}`;
+
+
+    //     fetch(`/${startFileName}`).then(response => {
+    //         if (response.ok) {
+    //             document.getElementById("modalText").innerHTML = `The ${startFileName} file already exists. Would you like to now download an existing file without scraping it? Click the "Download" button to download it. To ignore and scrap again, click the “Ignore” button.`;
+    //             // If the file exists, download it
+    //             // window.location.href = `/static/${fileName}`;
+    //             window.location.href = "#m2-o";
+    //         } else {
+    //             // If the file doesn't exist, submit the form
+    //             submitFunction();
+    //         }
+    //     }).catch(err => {
+    //         console.error('Error fetching the file:', err);
+    //     });
+    // };
+
+    // const submitFunction = (scrapeStartDate) => {
+
+    //     const deleteFileFuction = () => {
+    //         fileName = "Avis" + scrapeStartDate + ".csv";
+
+    //         const deletefileName = fileName;
+    //         const data = { 'deletefileName': deletefileName };
+    //         axios.post('/delete-file', data, {
+    //             headers: {
+    //                 'Content-Type': 'application/json'
+    //             }
+    //         })
+    //             .then(res => {
+    //                 console.log("file deleted!!!");
+    //             })
+    //     }
+
+    //     try {
+    //         deleteFileFuction();
+    //     } catch (error) {
+
+    //     }
+
+    //     // event.preventDefault();
+
+    //     const input = document.querySelector('#submitData');
+
+    //     name = input.value;
+    //     if (name) {
+    //         const data = { 'data': name };
+
+    //         document.getElementById("statusText").innerHTML = "Scraping now for " + name;
+
+    //         axios.post('/submit', data, {
+    //             headers: {
+    //                 'Content-Type': 'application/json'
+    //             }
+    //         })
+    //             .then(response => {
+    //                 // Handle the response data
+    //                 // console.log(response.data);
+    //                 // document.getElementById("statusText").innerHTML = "scraping now . . .";
+    //             })
+    //             .catch(error => {
+    //                 // Handle any errors
+    //                 console.error(error);
+    //             });
+    //     }
+
+    // };
+    // const downloadFuction = () => {
+        // const fileName = "Avis"+document.getElementById('submitData').value+".csv";
+
+    //     window.location.href = "/";
+    //     window.location.href = `/${startFileName}`;
+    //     document.getElementById("download").style.visibility = "hidden";
+
+    // }
+
+</script>
+
+</html>
