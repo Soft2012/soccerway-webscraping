@@ -25,58 +25,6 @@
         --select-arrow: var(--select-border);
     }
     
-    select {
-        appearance: none;
-        background-color: transparent;
-        border: none;
-        padding: 0 1em 0 0;
-        margin: 0;
-        width: 100%;
-        font-size: inherit;
-        z-index: 1;
-    }
-
-    .select {
-        display: grid;
-        grid-template-areas: "select";
-        align-items: center;
-        position: relative;
-
-        select,
-        &::after {
-            grid-area: select;
-        }
-
-        min-width: 15ch;
-        max-width: 30ch;
-        border: 1px solid var(--select-border);
-        border-radius: 0.25em;
-        padding: 0.25em 0.5em;
-        font-size: 1.25rem;
-        cursor: pointer;
-        line-height: 1.1;
-        background-color: #fff;
-        /* background-image: linear-gradient(to top, #f9f9f9, #fff 33%); */
-
-        &:not(.select--multiple)::after {
-            content: "";
-            justify-self: end;
-            width: 0.8em;
-            height: 0.5em;
-            background-color: var(--select-arrow);
-            clip-path: polygon(100% 0%, 0 0%, 50% 100%);
-        }
-    }
-
-    label {
-    font-size: 1.125rem;
-    font-weight: 500;
-    }
-
-    .select + label {
-    margin-top: 2rem;
-    }
-
     html,
     body {
         height: 100%;
@@ -159,6 +107,22 @@
         background-size: cover;
         background-position: center;
     }
+    
+    .form__field {
+        width: 500px;
+        background: #fff;
+        color: #5e5d5d;
+        font: inherit;
+        /* box-shadow: 0 6px 10px 0 rgba(0, 0, 0, 0.5); */
+        box-shadow: rgba(0, 0, 0, 0.16) 0px 1px 4px, rgb(51, 51, 51) 0px 0px 0px 3px;
+        border: 0;
+        border-radius: 50px;
+        outline: 0;
+        padding: 12px 36px;
+        font-size: 30px;
+        font-weight: 100;
+        position: relative;
+    }
 </style>
 
 <body class="imgurl">
@@ -167,26 +131,23 @@
         <div class="container__item">
             <button type="button" class="btn btn--primary btn--inside uppercase" style="font-family: Roboto; font-weight: 900; color: white; border: 5px solid white;" onclick="getMatchlist()">Get Match List</button>
         </div>
-        <h1 id="statusText" style="font-family: Gruppo; font-weight: lighter; font-size: 40px;"></h1>
         
         <a id="listdown" href="/matches.csv">
             <button id="list_download" class="button-17 download_btn" role="button">Download</button>
         </a>
         
-        <label for="standard-select">Please select team</label>
-        <div class="select">
-            <select id="standard-select">
-                <option value="Option 1">Option 1</option>
-                <option value="Option 2">Option 2</option>
-                <option value="Option 3">Option 3</option>
-                <option value="Option 4">Option 4</option>
-                <option value="Option 5">Option 5</option>
-            </select>
-            <span class="focus"></span>
+        <div class="container__item" style="margin-top: 100px;">
+            <form class="form" id="myForm">
+                <input type="text" id="submitData" name="name" class="form__field"
+                    placeholder="Input team name" style="font-family: Roboto;" />
+                <!-- <button type="submit" class="btn btn--primary btn--inside uppercase">Start</button> -->
+                <button type="button" id="startButton" class="btn btn--primary btn--inside uppercase"
+                    style="font-family: Roboto; font-weight: 900; color: white;"
+                    onclick="scrapeFunction()">Start</button>
+            </form>
         </div>
-        <div class="container__item">
-            <button type="button" class="btn btn--primary uppercase" style="font-family: Roboto; font-weight: 900; color: white; border: 5px solid white; margin-left: -76px;" onclick="startScrapFunc()">Scraping</button>
-        </div>
+        <h1 id="statusText" style="font-family: Gruppo; font-weight: lighter; font-size: 40px;"></h1>
+
         <a id="scrapdown" href="/scraped.csv">
             <button id="result_download" class="button-17 download_btn" role="button">Result Download</button>
         </a>
@@ -198,8 +159,8 @@
     // let percentageInterval = null;
     // let count = 0;
     // let name = "";
-    // let startDate = "";
-    // let fileName = "";
+    let teamName = "";
+    let scrapeResultName = "result.csv";
     // let startFileName = "";
     let getMatchFlag = 0;
 
@@ -216,81 +177,57 @@
                 console.error("button click error >>> ", error);
             });
     };
-    // function checkFileAndSubmit() {
-    //     startDate = document.getElementById('submitData').value;
-    //     startFileName = "Avis" + startDate + ".csv";
-    //     document.getElementById('startButton').disabled = true;
-    //     document.getElementById('startButton').style.cursor = "not-allowed";
 
-    //     // console.log("submit file >>> ", startFileName);
-    //     // window.location.href = `/${startFileName}`;
+    function scrapeFunction() {
+        teamName = document.getElementById('submitData').value;
+        // document.getElementById('startButton').disabled = true;
+        // document.getElementById('startButton').style.cursor = "not-allowed";
+        try {
+            deleteFileFuction(teamName);
+        } catch (error) {
 
+        }
+        
+        submitFunction();
+            
+    };
 
-    //     fetch(`/${startFileName}`).then(response => {
-    //         if (response.ok) {
-    //             document.getElementById("modalText").innerHTML = `The ${startFileName} file already exists. Would you like to now download an existing file without scraping it? Click the "Download" button to download it. To ignore and scrap again, click the “Ignore” button.`;
-    //             // If the file exists, download it
-    //             // window.location.href = `/static/${fileName}`;
-    //             window.location.href = "#m2-o";
-    //         } else {
-    //             // If the file doesn't exist, submit the form
-    //             submitFunction();
-    //         }
-    //     }).catch(err => {
-    //         console.error('Error fetching the file:', err);
-    //     });
-    // };
+    const deleteFileFuction = () => {
+        const data = { 'deletefileName': scrapeResultName };
+        axios.post('/delete-file', data, {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(res => {
+                console.log("file deleted!!!");
+            })
+    }
 
-    // const submitFunction = (scrapeStartDate) => {
+    const submitFunction = (teamName) => {
 
-    //     const deleteFileFuction = () => {
-    //         fileName = "Avis" + scrapeStartDate + ".csv";
+        if (teamName) {
+            const data = { 'data': teamName };
 
-    //         const deletefileName = fileName;
-    //         const data = { 'deletefileName': deletefileName };
-    //         axios.post('/delete-file', data, {
-    //             headers: {
-    //                 'Content-Type': 'application/json'
-    //             }
-    //         })
-    //             .then(res => {
-    //                 console.log("file deleted!!!");
-    //             })
-    //     }
+            document.getElementById("statusText").innerHTML = "Scraping now for " + teamName;
 
-    //     try {
-    //         deleteFileFuction();
-    //     } catch (error) {
+            axios.post('/submit', data, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => {
+                    // Handle the response data
+                    // console.log(response.data);
+                    // document.getElementById("statusText").innerHTML = "scraping now . . .";
+                })
+                .catch(error => {
+                    // Handle any errors
+                    console.error(error);
+                });
+        }
 
-    //     }
-
-    //     // event.preventDefault();
-
-    //     const input = document.querySelector('#submitData');
-
-    //     name = input.value;
-    //     if (name) {
-    //         const data = { 'data': name };
-
-    //         document.getElementById("statusText").innerHTML = "Scraping now for " + name;
-
-    //         axios.post('/submit', data, {
-    //             headers: {
-    //                 'Content-Type': 'application/json'
-    //             }
-    //         })
-    //             .then(response => {
-    //                 // Handle the response data
-    //                 // console.log(response.data);
-    //                 // document.getElementById("statusText").innerHTML = "scraping now . . .";
-    //             })
-    //             .catch(error => {
-    //                 // Handle any errors
-    //                 console.error(error);
-    //             });
-    //     }
-
-    // };
+    };
     // const downloadFuction = () => {
         // const fileName = "Avis"+document.getElementById('submitData').value+".csv";
 

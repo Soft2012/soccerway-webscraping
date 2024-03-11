@@ -3,9 +3,11 @@ const fs = require('fs');
 const csv = require('csv-parser');
 const { Parser } = require('json2csv');
 
-let percentage = 0;
-let scrapeStartDate = "";
-async function scrapFunction(givenDate) {
+let parser = new Parser();
+
+let resultFileName = "./Result/result.csv";
+
+async function scrapFunction(teamName) {
     // const nowDate = new Date()
     // console.log(nowDate)
     percentage = 0;
@@ -15,16 +17,10 @@ async function scrapFunction(givenDate) {
     let results = [];
     let count = 0;
     let keyCount = 0;
-    scrapeStartDate = givenDate;
 
     let appendHeader = { 'Code': "Code", 'City': "City", 'State': "State", 'Address': "Address", 'Class': "Class", 'Vehicle type': "Vehicle", 'Date From': "Start", 'Date To': "End", 'Total(pay now)': "Pay Now", 'Total(pay later)': "Pay Later", 'Link': "Reserve" };
-
-
-    let parser = new Parser();
     let headerData = parser.parse(appendHeader);
-
     let csvHeader = headerData.split('\n')[1] + '\n';
-    let resultFileName = "./Result/Avis" + givenDate + ".csv";
 
     fs.appendFileSync(resultFileName, csvHeader, 'utf8', (err) => {
         if (err) {
@@ -36,260 +32,140 @@ async function scrapFunction(givenDate) {
     // Do something with the submitted data (e.g., save it to a database)
 
     async function handleScraping() {
-        for (let i = 0; i < 30; i++) {
 
-            const newDate = new Date(givenDate + "-01");
-            newDate.setDate(newDate.getDate() + i);
-            const startDate = newDate.toISOString().split('T')[0];
-            const start_date = startDate.split("-")[1] + "/" + startDate.split("-")[2] + "/" + startDate.split("-")[0];
-            newDate.setDate(newDate.getDate() + 330);
-            const endDate = newDate.toISOString().split('T')[0];
-            const end_date = endDate.split("-")[1] + "/" + endDate.split("-")[2] + "/" + endDate.split("-")[0];
-            // console.log("start date >>> ", start_date);
-            // console.log("end date >>> ", end_date);
-            // console.log("----------------------");
+        const browser = await puppeteer.launch({
+            headless: false, // Use the new Headless mode
+            // ... other options
+        });
 
-            let Digital_Token = null;
-            let RecaptchaResponse = null;
-            let Cookie = null;
-            let BasicPayload = null;
-            let carName = "";
-            let carDesc = "";
-            let payLaterAmount = "";
-            let payLaterTotalAmount = "";
-            let payNowAmount = "";
-            let payNowTotalAmount = "";
-            let csvRow = [];
-            let writeData = [];
+        // Rest of your code using the browser instance
+        const page = await browser.newPage();
 
-            async function getRequestData() {
-                const browser = await puppeteer.launch({
-                    headless: true, // Use the new Headless mode
-                    // ... other options
-                });
+        // Navigate to a page that triggers AJAX requests
+        await page.goto('https://int.soccerway.com/', {
+            timeout: 500000
+        });
 
-                // Rest of your code using the browser instance
-                const page = await browser.newPage();
+        // Delay function
+        function delay(ms) {
+            return new Promise((resolve) => setTimeout(resolve, ms));
+        }
 
-                // Enable request interception
-                await page.setRequestInterception(true);
+        // await delay(3000);
+        let target_match_link = "";
+        let match_links = 'div.teams a';
+        const [matches] = await page.$$(match_links);
+        
+        for (let i = 0; i < matches.length; i++) {
+            const match = matches[i];
+            const match_link = match.getAttribute('href');
+            if (match_link.includes(teamName)) {
+                target_match_link = match_link;
+                console.log("target match link : ", target_match_link);
+            }
+            
+        }
+        
+        await page.goto(target_match_link, {
+            timeout: 500000
+        });
+        
+        let home_lineup_names = [];
+        let away_lineup_names = [];
 
-                // Listen for the request event
-                page.on('request', async (request) => {
+        const players_path_from_match = '.combined-lineups-container div table tbody tr td.player a'
+        const [ players_from_match ] = await page.$$(players_path_from_match)
+        for (let i = 0; i < 11; i++) {
+            const player = players_from_match[i];
+            const lineup_player_name = player.text()
+            console.log("hometeam players : ", lineup_player_name);
+            home_lineup_names.push(lineup_player_name);
+        }
+        for (let i = 11; i < 22; i++) {
+            const player = players_from_match[i];
+            const lineup_player_name = player.text()
+            console.log("awayteam players : ", lineup_player_name);
+            away_lineup_names.push(lineup_player_name);
+        }
 
-                    if (!request.isNavigationRequest()) {
-                        // It's an AJAX request
-                        if (request.url().includes('https://www.avis.com/webapi/reservation/vehicles')) {
+        let team_link_from_match = "";
+        let lineup_names = [];
+        const team_path_from_match = '#team-title';
+        const [ teams_from_match ] = await page.$$(team_path_from_match);
+        const hometeam_from_match = teams_from_match[0].getAttribute('href');
+        const awayteam_from_match = teams_from_match[1].getAttribute('href');
+        if (hometeam_from_match.includes(teamName)) {
+            team_link_from_match = hometeam_from_match;
+            lineup_names = home_lineup_names;
+        } else {
+            team_link_from_match = awayteam_from_match;
+            lineup_names = away_lineup_names;
+        }
 
-                            BasicPayload = request.postData();
+        await page.goto(team_link_from_match, {
+            timeout: 500000
+        });
 
-                            if (BasicPayload) {
-                                Digital_Token = request.headers()['digital-token'];
-                                Cookie = request.headers().cookie;
-                                RecaptchaResponse = request.headers()['g-recaptcha-response'];
-                            }
-                        }
-                    }
-                    request.continue();
-                });
+        let player_path_list = [];
+        const players_path_from_team = 'tr td div a';
+        const [ players_from_team ] = await page.$$(players_path_from_team);
+        for (let i = 0; i < players_from_team.length-1; i++) {
+            const player = players_from_team[i];
+            const palyer_name = player.text();
+            const player_link = player.getAttribute('href');
+            player_path_list.push({'name': palyer_name, 'link': player_link});
+        }
+        for (let i = 0; i < player_path_list.length; i++) {
+            const player_path = player_path_list[i].link;
+            
+            await page.goto(player_path, {
+                timeout: 500000
+            });
+            
+            const player_name = player_path_list[i].name;
+            const player_age = await page.$('.highlight .age').text();
+            const player_position = await page.$('dd[data-position="position"]').text()[0];
+            const player_game_minutes = await page.$('.odd .game-minutes').text();
+            const player_appearances = await page.$('.odd .appearances').text();
+            const player_lineups = await page.$('.odd .lineups').text();
+            const player_subs_in = await page.$('.odd .subs-in').text();
+            const player_subs_out = await page.$('.odd .subs-out').text();
+            const player_subs_on_bench = await page.$('.odd .subs-on-bench').text();
+            const player_goals = await page.$('.odd .goals').text();
+            const player_yellow_cards = await page.$('.odd .yellow-cards').text();
+            const player_2nd_yellow_cards = await page.$('.odd .2nd-yellow-cards').text();
+            const player_red_cards = await page.$('.odd .red-cards').text();
+            const player_team = await page.$('.team a').text();
 
-                // Navigate to a page that triggers AJAX requests
-                await page.goto('https://www.avis.com/en/home', {
-                    timeout: 500000
-                });
-
-                // Delay function
-                function delay(ms) {
-                    return new Promise((resolve) => setTimeout(resolve, ms));
-                }
-
-                // await delay(3000); 
-                let modalXPath = '/html/body/div[4]/section/div[2]/div[1]/span';
-                try {
-                    const [modalClose] = await page.$x(modalXPath);
-                    await modalClose.click({ timeout: 300000 });
-                } catch (error) {
-                    console.log("First modal is not exist...");
-                }
-
-                // await delay(3000); 
-                let secModalXPath = '/html/body/div[4]/section/div[1]/div[1]/span';
-                try {
-                    const [secModalClose] = await page.$x(secModalXPath);
-                    await secModalClose.click({ timeout: 300000 });
-                } catch (error) {
-                    console.log("Second modal is not exist...");
-                }
-
-                await page.waitForSelector('#PicLoc_value', { timeout: 300000 });
-                await page.type('#PicLoc_value', 'shr');
-                await page.$eval('#from', (element) => {
-                    element.value = "11/03/2023";
-                });
-
-                await delay(3000);
-                const endDateField = await page.waitForSelector('#to', { timeout: 300000 });
-                await endDateField.click({ timeout: 300000 });
-
-                await delay(3000);
-                const endDateXPath = '//*[@id="ui-datepicker-div"]/div[3]/table/tbody/tr[2]/td[3]/a';
-
-                const [end_day] = await page.$x(endDateXPath);
-                await end_day.click({ timeout: 300000 });
-
-                await delay(3000);
-
-                const findButton = await page.waitForSelector('#res-home-select-car', { timeout: 500000 });
-                await findButton.click({ timeout: 300000 });
-
-                await delay(3000);
-
-                // var button = document.getElementById('myButton'); // Replace 'myButton' with the ID of your button
-
-                // var timeoutId; // Variable to store the ID of the timer
-
-                // button.addEventListener('mousedown', function() {
-                //     timeoutId = setTimeout(function() {
-                //         // Code to execute after 10 seconds
-                //         console.log('Mouse click held for 10 seconds!');
-                //     }, 10000); // 10000 milliseconds = 10 seconds
-                // });
-
-                // button.addEventListener('mouseup', function() {
-                //     clearTimeout(timeoutId);
-                // });
-
-                async function processFilesSequentially(filePaths) {
-                    try {
-                        const data = await readFileSequentially(filePaths);
-                        for (const row of data) {
-                            const searchKey = row[3];
-                            console.log("SearchKey >>> ", searchKey)
-                            // const state = row[0];
-                            // const city = row[1];
-                            const fullLocation = row[4];
-                            const locationElements = fullLocation.split(",");
-                            const elementNum = locationElements.length;
-                            const location = locationElements[elementNum - 5] + locationElements[elementNum - 4] + locationElements[elementNum - 3] + locationElements[elementNum - 2] + locationElements[elementNum - 1];
-                            const street = locationElements[elementNum - 5];
-                            const city = locationElements[elementNum - 3];
-                            const state = locationElements[elementNum - 4];
-
-                            // const removeLocation = fullLocation.split(",")[0];
-                            // const dispalyLocation = fullLocation.replace(removeLocation, "");
-                            // const location = dispalyLocation.replace(",", "");
-                            // const street = location.split(",")[0];
-                            // console.log("fullLocation >>> ", fullLocation);
-                            const link = row[2];
-                            // console.log("search key >>>>>> ", searchKey);
-                            keyCount = keyCount + 1;
-                            percentage = keyCount
-                            console.log("percentage: ", keyCount);
-
-                            await fetch("https://www.avis.com/webapi/reservation/vehicles", {
-                                "headers": {
-                                    "accept": "application/json, text/plain, */*",
-                                    "accept-language": "en-US,en;q=0.9",
-                                    "action": "RES_VEHICLESHOP",
-                                    "bookingtype": "car",
-                                    "channel": "Digital",
-                                    "content-type": "application/json",
-                                    "devicetype": "bigbrowser",
-                                    "digital-token": Digital_Token,
-                                    "domain": "us",
-                                    "g-recaptcha-response": RecaptchaResponse,
-                                    "initreservation": "true",
-                                    "locale": "en",
-                                    "password": "AVISCOM",
-                                    "sec-ch-ua": "\"Google Chrome\";v=\"119\", \"Chromium\";v=\"119\", \"Not?A_Brand\";v=\"24\"",
-                                    "sec-ch-ua-mobile": "?0",
-                                    "sec-ch-ua-platform": "\"Windows\"",
-                                    "sec-fetch-dest": "empty",
-                                    "sec-fetch-mode": "cors",
-                                    "sec-fetch-site": "same-origin",
-                                    "username": "AVISCOM",
-                                    "cookie": Cookie,
-                                    "Referer": "https://www.avis.com/en/home",
-                                    "Referrer-Policy": "strict-origin-when-cross-origin"
-                                },
-                                "body": "{\"rqHeader\":{\"brand\":\"\",\"locale\":\"en_US\"},\"nonUSShop\":false,\"pickInfo\":\"" + searchKey + "\",\"pickCountry\":\"US\",\"pickDate\":\"" + start_date + "\",\"pickTime\":\"12:00 PM\",\"dropInfo\":\"" + searchKey + "\",\"dropDate\":\"" + end_date + "\",\"dropTime\":\"12:00 PM\",\"couponNumber\":\"\",\"couponInstances\":\"\",\"couponRateCode\":\"\",\"discountNumber\":\"B257500\",\"rateType\":\"LEISURE\",\"residency\":\"US\",\"age\":25,\"wizardNumber\":\"\",\"lastName\":\"\",\"userSelectedCurrency\":\"\",\"selDiscountNum\":\"\",\"promotionalCoupon\":\"\",\"preferredCarClass\":\"\",\"membershipId\":\"\",\"noMembershipAvailable\":false,\"corporateBookingType\":\"\",\"enableStrikethrough\":\"true\",\"picLocTruckIndicator\":false,\"amazonGCPayLaterPercentageVal\":\"\",\"amazonGCPayNowPercentageVal\":\"\",\"corporateEmailID\":\"\"}",
-                                "method": "POST"
-                            })
-                                .then(response => {
-                                    if (response.ok) {
-                                        return response.json(); // assuming the response is in JSON format
-                                    } else {
-                                        throw new Error("Request failed with status " + response.status);
-                                    }
-                                })
-                                .then(data => {
-                                    // handle the response data here
-                                    const infos = data.vehicleSummaryList;
-                                    for (let num = 0; num < infos.length; num++) {
-                                        const info = infos[num];
-                                        if (info.payLaterRate) {
-
-                                            // console.log("info >>> ", info);
-                                            // carName = info.make;
-                                            carName = info.carGroup;
-                                            // console.log("car name --> ", carName);
-                                            carDesc = info.makeModel;
-                                            // console.log("car desc --> ", carDesc);
-                                            payLaterAmount = info.payLaterRate.amount;
-                                            payLaterTotalAmount = info.payLaterRate.totalRateAmount;
-                                            if (info.payNowRate) {
-                                                payNowAmount = info.payNowRate.amount;
-                                                payNowTotalAmount = info.payNowRate.totalRateAmount;
-                                            }
-                                            else {
-                                                payNowTotalAmount = "";
-                                            }
-
-                                            // Create a new instance of the Result model
-                                            result = { Code: searchKey, CarName: carName, Type: carDesc, From: startDate, To: endDate, PayLater: payLaterAmount, PayLaterTotal: payLaterTotalAmount, State: state, City: city, FullLocation: fullLocation, URL: link };
-
-                                            // const appendData = { 'Code': searchKey, 'CarName':carName, 'Type':carDesc, 'From':startDate, 'To':endDate, 'PayLater':payLaterAmount,  'PayLaterTotal':payLaterTotalAmount, 'State':state, 'City':city, 'FullLocation':fullLocation, 'URL':link };
-                                            const appendData = { 'Code': searchKey, 'City': city, 'State': state, 'Address': location, 'Class': carName, 'Vehicle type': carDesc, 'Date From': startDate, 'Date To': endDate, 'Total(pay now)': payNowTotalAmount, 'Total(pay later)': payLaterTotalAmount, 'Link': link };
-
-                                            // const parser = new Parser();
-                                            const csv = parser.parse(appendData);
-
-                                            const csvDataWithoutHeader = csv.split('\n')[1] + '\n';
-                                            // const resultFileName = "./Result/Avis"+givenDate+".csv";
-
-                                            fs.appendFileSync(resultFileName, csvDataWithoutHeader, 'utf8', (err) => {
-                                                if (err) {
-                                                    console.error('Error appending to CSV file:', err);
-                                                } else {
-                                                    console.log('CSV data appended successfully.');
-                                                }
-                                            });
-
-                                        }
-                                    }
-                                })
-                                .catch(error => {
-                                    // handle any errors that occurred during the request
-                                    console.error("No match result ...");
-                                });
-                        }
-                    } catch (error) {
-                        console.log("load location file error ...");
-                    }
-
-                }
-
-                const files = './avisLocation.csv';
-                await processFilesSequentially(files);
-
-                await browser.close();
+            let player_lineup_flag = "";
+            if (lineup_names.includes(player_name)) {
+                player_lineup_flag = "Yes";
+            } else {
+                player_lineup_flag = "No";
 
             }
 
-            await getRequestData();
+            console.log("name : ", player_name);
+            console.log("age : ", player_age);
+            console.log("position : ", player_position);
+            console.log("minutes : ", player_game_minutes);
+            console.log("appearances : ", player_appearances);
+            console.log("lineups : ", player_lineups);
+            console.log("sub in : ", player_subs_in);
+            console.log("sub out : ", player_subs_out);
+            console.log("sub on bench : ", player_subs_on_bench);
+            console.log("goals : ", player_goals);
+            console.log("yellow card : ", player_yellow_cards);
+            console.log("2nd yellow card : ", player_2nd_yellow_cards);
+            console.log("red card : ", player_red_cards);
+            console.log("team : ", player_team);
+            console.log("lineup : ", player_lineup_flag);
+            console.log("---------------------------------------");
+            
+        };
 
+        await browser.close();
 
-        }
     }
 
     async function readFileSequentially(filePath) {
@@ -320,11 +196,9 @@ async function scrapFunction(givenDate) {
 
 }
 
-function percentFunction() {
-    return { percentage, scrapeStartDate }
-}
 
 module.exports = {
     scrapFunction,
-    percentFunction,
 }
+
+scrapFunction("Manchester")

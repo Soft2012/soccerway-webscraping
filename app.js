@@ -69,9 +69,9 @@ app.post('/getmatchlist', (req, res) => {
 });
 app.post('/submit', (req, res) => {
     async function ReceiveSubmit() {
-        const givenDate = req.body.data;
+        const teamName = req.body.data;
     
-        const scrapResult = await scrapFunction(givenDate);
+        const scrapResult = await scrapFunction(teamName);
     
         // Send a response back to the frontend
         res.send(scrapResult);
